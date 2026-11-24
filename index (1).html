@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XAUUSD 캔들 알림</title>
+<style>
+  :root{--bg:#0f1318;--card:#181e26;--line:#2a3340;--tx:#e6eaf0;--mut:#8b97a8;--up:#26a69a;--dn:#ef5350;--ac:#f5b942}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"Malgun Gothic",sans-serif;padding:16px;max-width:760px;margin:auto}
+  h1{font-size:20px;margin:4px 0 12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .badge{padding:2px 9px;border-radius:99px;font-size:13px;font-weight:600}
+  .on{background:#1f3d38;color:var(--up)} .off{background:#3a2326;color:var(--dn)} .wait{background:#2b2a22;color:var(--ac)}
+  button{background:var(--ac);color:#111;border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}
+  button.sec{background:#2a3340;color:var(--tx)}
+  label{display:flex;gap:6px;align-items:center;color:var(--mut);font-size:13px}
+  input[type=number],input[type=text]{background:#0f1318;border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:5px 7px;width:80px}
+  input[type=text]{width:170px}
+  .big{font-size:26px;font-weight:700}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+  .cond{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+  .cond:last-child{border:0}
+  .ok{color:var(--up);font-weight:700}.no{color:var(--mut)}
+  #log div{padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+  #log .hit{color:var(--ac);font-weight:700}
+  small{color:var(--mut)}
+  .chartbox{height:420px;border-radius:8px;overflow:hidden;margin-top:8px;background:#0f1318}
+  .tabs{display:none;gap:8px;margin-bottom:8px}
+  @media(max-width:560px){.chartbox{height:360px}}
+  .candles{display:flex;gap:3px;align-items:flex-end;height:60px;margin-top:8px}
+  .candles i{display:block;width:10px;border-radius:2px}
+</style>
+</head>
+<body>
+<h1>🥇 XAUUSD 캔들 패턴 알림</h1>
+
+<div class="card">
+  <div class="row">
+    <button id="start">▶ 감시 시작 / 알림 허용</button>
+    <button id="test" class="sec">🔔 알림 테스트</button>
+    <span id="state" class="badge off">중지됨</span>
+    <span id="clock" style="color:var(--mut);font-size:13px"></span>
+  </div>
+  <p style="margin:10px 0 0"><small>탭을 열어둔 상태에서만 동작합니다(백그라운드 탭 가능, 브라우저/PC 종료 시 중지). 폰 알림은 아래 텔레그램 설정을 쓰세요.</small></p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><b>현재가 (PAXG≈금)</b><small id="upd">-</small></div>
+    <div class="big" id="price">-</div>
+    <div class="candles" id="spark"></div>
+  </div>
+  <div class="card">
+    <b>조건 상태</b>
+    <div class="cond"><span>① 1시간봉: 직전 양봉 → 진행중 음봉</span><span id="c1" class="no">-</span></div>
+    <div class="cond"><span>② 15분봉: 음봉 도지 → 장대 음봉 마감</span><span id="c2" class="no">-</span></div>
+    <div class="cond"><span>①+② 동시 충족</span><span id="c3" class="no">-</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between">
+    <b>차트 (TradingView · OANDA:XAUUSD)</b>
+    <label>종목 <input type="text" id="tvSym" value="OANDA:XAUUSD" style="width:140px"></label>
+  </div>
+  <div style="margin-top:10px"><small>15분봉</small>
+    <div class="chartbox" id="chart15"></div>
+  </div>
+  <div style="margin-top:10px"><small>1시간봉</small>
+    <div class="chartbox" id="chart60"></div>
+  </div>
+  <small>차트는 TradingView 무료 위젯이라 알림 판정(Binance PAXG 데이터)과 가격이 몇 달러 다를 수 있습니다.</small>
+</div>
+
+<div class="card">
+  <b>설정</b>
+  <div class="row" style="margin-top:8px">
+    <label>직전 양봉 개수 <input type="number" id="nBull" value="1" min="1" max="10"></label>
+    <label>도지 몸통/전체범위 ≤ <input type="number" id="dojiR" value="0.30" step="0.05" min="0.05" max="0.5"></label>
+    <label>장대음봉 몸통 ≥ 평균×<input type="number" id="bigK" value="1.5" step="0.1" min="1"></label>
+    <label>장대음봉 몸통비율 ≥ <input type="number" id="bigR" value="0.6" step="0.05" min="0.3" max="1"></label>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label><input type="checkbox" id="need1h" checked> 1시간봉 조건도 함께 충족해야 알림</label>
+    <label><input type="checkbox" id="sound" checked> 소리</label>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label>텔레그램 봇 토큰 <input type="text" id="tgTok" placeholder="123456:ABC..."></label>
+    <label>Chat ID <input type="text" id="tgId" placeholder="12345678"></label>
+  </div>
+  <small>설정은 이 브라우저에만 저장됩니다(localStorage). 토큰은 서버로 전송되지 않고 텔레그램 API로만 직접 전송됩니다.</small>
+</div>
+
+<div class="card"><b>알림 기록</b><div id="log"><small>아직 없음</small></div></div>
+
+<script>
+// TradingView 위젯 (15분 / 1시간)
+function mountChart(elId, interval, symbol){
+  const box = document.getElementById(elId);
+  box.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'tradingview-widget-container';
+  wrap.style.cssText = 'height:100%;width:100%';
+  const inner = document.createElement('div');
+  inner.className = 'tradingview-widget-container__widget';
+  inner.style.cssText = 'height:100%;width:100%';
+  wrap.appendChild(inner);
+  const s = document.createElement('script');
+  s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  s.async = true;
+  s.text = JSON.stringify({
+    autosize: true,
+    symbol: symbol,
+    interval: interval,
+    timezone: 'Asia/Seoul',
+    theme: 'dark',
+    style: '1',
+    locale: 'kr',
+    allow_symbol_change: true,
+    hide_side_toolbar: true,
+    withdateranges: false,
+    save_image: false,
+    support_host: 'https://www.tradingview.com'
+  });
+  wrap.appendChild(s);
+  box.appendChild(wrap);
+}
+function mountAll(){
+  const sym = document.getElementById('tvSym').value.trim() || 'OANDA:XAUUSD';
+  try{ localStorage.setItem('xau_tv_sym', sym); }catch(e){}
+  mountChart('chart15', '15', sym);
+  mountChart('chart60', '60', sym);
+}
+try{ const v = localStorage.getItem('xau_tv_sym'); if(v) document.getElementById('tvSym').value = v; }catch(e){}
+document.getElementById('tvSym').addEventListener('change', mountAll);
+mountAll();
+</script>
+<script src="app.js"></script>
+</body>
+</html>
